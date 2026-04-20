@@ -35,7 +35,8 @@ namespace {
 	const auto type2 = password[1].toLower();
 	const auto valid = (size == 16)
 		|| (size == 17 && (type1 == 'd') && (type2 == 'd'))
-		|| (size >= 21 && (type1 == 'e') && (type2 == 'e'));
+		|| (size >= 21 && (type1 == 'e') && (type2 == 'e'))
+		|| (size >= 21 && (type1 == 'f') && (type2 == 'f'));
 	if (valid) {
 		return ProxyData::Status::Valid;
 	} else if (size < 16) {
@@ -121,7 +122,10 @@ namespace {
 		|| (size >= 21
 			&& (password[0] == '7')
 			&& (password[1] >= 'g')
-			&& (password[1] <= 'v'));
+			&& (password[1] <= 'v'))
+		|| (size >= 21
+			&& (password[0] == '_')
+			&& (password[1] == 'w'));
 	const auto incorrect = (size >= 21
 		&& password[0].toLower() == 'e'
 		&& password[1].toLower() == 'e');

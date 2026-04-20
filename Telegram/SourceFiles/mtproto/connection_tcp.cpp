@@ -233,6 +233,7 @@ auto TcpConnection::Protocol::Create(bytes::const_span secret)
 -> std::unique_ptr<Protocol> {
 	// See also DcOptions::ValidateSecret.
 	if ((secret.size() >= 21 && secret[0] == bytes::type(0xEE))
+		|| (secret.size() >= 21 && secret[0] == bytes::type(0xFF))
 		|| (secret.size() == 17 && secret[0] == bytes::type(0xDD))) {
 		return std::make_unique<VersionD>(
 			bytes::make_vector(secret.subspan(1, 16)));
