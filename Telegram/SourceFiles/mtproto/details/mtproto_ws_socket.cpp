@@ -17,7 +17,6 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 namespace MTP::details {
 namespace {
 
-constexpr auto kWsPath = "/v1/api/mtpr";
 constexpr auto kWsVersion = "13";
 constexpr auto kWsGuid = "258EAFA5-E914-47DA-95CA-A5AB0DC85B11";
 
@@ -46,11 +45,13 @@ constexpr auto kWsGuid = "258EAFA5-E914-47DA-95CA-A5AB0DC85B11";
 WsSocket::WsSocket(
 	not_null<QThread*> thread,
 	const bytes::vector &secret,
+	const QString &wsPath,
 	const QNetworkProxy &proxy,
 	bool protocolForFiles)
 : AbstractSocket(thread)
-, _secret(secret) {
-	Expects(_secret.size() >= 21 && _secret[0] == bytes::type(0xFF));
+, _secret(secret)
+, _wsPath(wsPath.toUtf8()) {
+	Expects(_secret.size() >= 17);
 
 	_socket.moveToThread(thread);
 	_socket.setProxy(proxy);
@@ -95,14 +96,6 @@ WsSocket::WsSocket(
 		}));
 }
 
-bytes::const_span WsSocket::domainFromSecret() const {
-	return bytes::make_span(_secret).subspan(17);
-}
-
-bytes::const_span WsSocket::keyFromSecret() const {
-	return bytes::make_span(_secret).subspan(1, 16);
-}
-
 void WsSocket::plainConnected() {
 	if (_state != State::Connecting) {
 		return;
@@ -140,14 +133,11 @@ void WsSocket::handleError(int errorCode) {
 void WsSocket::sendUpgradeRequest() {
 	_wsKey = GenerateWsKey();
 
-	const auto domain = domainFromSecret();
-	const auto host = QByteArray(
-		reinterpret_cast<const char*>(domain.data()),
-		domain.size());
+	const auto host = _socket.peerName().toUtf8();
 
 	auto request = QByteArray();
 	request.append("GET ");
-	request.append(kWsPath);
+	request.append(_wsPath);
 	request.append(" HTTP/1.1\r\n");
 	request.append("Host: ");
 	request.append(host);
@@ -355,14 +345,8 @@ void WsSocket::connectToHost(const QString &address, int port) {
 	Expects(_state == State::NotConnected);
 
 	_state = State::Connecting;
-
-	const auto domain = domainFromSecret();
-	const auto sni = QString::fromUtf8(
-		reinterpret_cast<const char*>(domain.data()),
-		domain.size());
-
 	_socket.setPeerVerifyMode(QSslSocket::VerifyPeer);
-	_socket.connectToHostEncrypted(address, port, sni);
+	_socket.connectToHostEncrypted(address, port, address);
 }
 
 bool WsSocket::isGoodStartNonce(bytes::const_span nonce) {

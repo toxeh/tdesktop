@@ -95,7 +95,8 @@ using ProxyData = MTP::ProxyData;
 [[nodiscard]] bool ProxyDataIsShareable(const ProxyData &proxy) {
 	using Type = ProxyData::Type;
 	return (proxy.type == Type::Socks5)
-		|| (proxy.type == Type::Mtproto);
+		|| (proxy.type == Type::Mtproto)
+		|| (proxy.type == Type::Mtproto3);
 }
 
 [[nodiscard]] QString ProxyDataToQueryPath(const ProxyData &proxy) {
@@ -104,6 +105,7 @@ using ProxyData = MTP::ProxyData;
 		switch (proxy.type) {
 		case Type::Socks5: return u"socks"_q;
 		case Type::Mtproto: return u"proxy"_q;
+		case Type::Mtproto3: return u"proxy"_q;
 		case Type::None:
 		case Type::Http: return QString();
 		}
@@ -148,6 +150,9 @@ using ProxyData = MTP::ProxyData;
 		proxy.password = fields.value(u"pass"_q);
 	} else if (type == ProxyData::Type::Mtproto) {
 		proxy.password = fields.value(u"secret"_q);
+	} else if (type == ProxyData::Type::Mtproto3) {
+		proxy.password = fields.value(u"secret"_q);
+		proxy.wsPath = fields.value(u"wspath"_q);
 	}
 	return proxy;
 };
@@ -477,6 +482,7 @@ private:
 	void setupSocketAddress(const ProxyData &data);
 	void setupCredentials(const ProxyData &data);
 	void setupMtprotoCredentials(const ProxyData &data);
+	void setupMtproto3Credentials(const ProxyData &data);
 
 	void addLabel(
 		not_null<Ui::VerticalLayout*> parent,
@@ -495,9 +501,12 @@ private:
 	QPointer<Ui::InputField> _user;
 	QPointer<Ui::PasswordInput> _password;
 	QPointer<Base64UrlInput> _secret;
+	QPointer<Base64UrlInput> _secret3;
+	QPointer<Ui::InputField> _wsPath;
 
 	QPointer<Ui::SlideWrap<Ui::VerticalLayout>> _credentials;
 	QPointer<Ui::SlideWrap<Ui::VerticalLayout>> _mtprotoCredentials;
+	QPointer<Ui::SlideWrap<Ui::VerticalLayout>> _mtproto3Credentials;
 
 };
 
@@ -1307,12 +1316,17 @@ ProxyData ProxyBox::collectData() {
 	result.type = _type->current();
 	result.host = _host->getLastText().trimmed();
 	result.port = _port->getLastText().trimmed().toInt();
-	result.user = (result.type == Type::Mtproto)
-		? QString()
-		: _user->getLastText();
-	result.password = (result.type == Type::Mtproto)
-		? _secret->getLastText()
-		: _password->getLastText();
+	if (result.type == Type::Mtproto) {
+		result.user = QString();
+		result.password = _secret->getLastText();
+	} else if (result.type == Type::Mtproto3) {
+		result.user = QString();
+		result.password = _secret3->getLastText();
+		result.wsPath = _wsPath->getLastText().trimmed();
+	} else {
+		result.user = _user->getLastText();
+		result.password = _password->getLastText();
+	}
 	if (result.host.isEmpty()) {
 		_host->showError();
 	} else if (!result.port) {
@@ -1322,6 +1336,12 @@ ProxyData ProxyBox::collectData() {
 		_user->showError();
 	} else if (result.type == Type::Mtproto && !result.valid()) {
 		_secret->showError();
+	} else if (result.type == Type::Mtproto3 && !result.valid()) {
+		if (result.password.isEmpty()) {
+			_secret3->showError();
+		} else {
+			_wsPath->showError();
+		}
 	} else if (!result) {
 		_host->showError();
 	} else {
@@ -1335,6 +1355,7 @@ void ProxyBox::setupTypes() {
 		{ Type::Http, "HTTP" },
 		{ Type::Socks5, "SOCKS5" },
 		{ Type::Mtproto, "MTPROTO" },
+		{ Type::Mtproto3, "MTPROTO3 (WebSocket)" },
 	};
 	for (const auto &[type, label] : types) {
 		_content->add(
@@ -1404,7 +1425,9 @@ void ProxyBox::setupCredentials(const ProxyData &data) {
 		passwordWrap.data(),
 		st::connectionPasswordInputField,
 		tr::lng_connection_password_ph(),
-		(data.type == Type::Mtproto) ? QString() : data.password);
+		(data.type == Type::Mtproto || data.type == Type::Mtproto3)
+			? QString()
+			: data.password);
 	_password->move(0, 0);
 	_password->heightValue(
 	) | rpl::on_next([=, wrap = passwordWrap.data()](int height) {
@@ -1443,6 +1466,41 @@ void ProxyBox::setupMtprotoCredentials(const ProxyData &data) {
 	mtproto->add(std::move(secretWrap), st::proxyEditInputPadding);
 }
 
+void ProxyBox::setupMtproto3Credentials(const ProxyData &data) {
+	_mtproto3Credentials = _content->add(
+		object_ptr<Ui::SlideWrap<Ui::VerticalLayout>>(
+			_content,
+			object_ptr<Ui::VerticalLayout>(_content)));
+	const auto mtproto3 = _mtproto3Credentials->entity();
+	addLabel(mtproto3, tr::lng_proxy_credentials(tr::now));
+
+	auto secretWrap = object_ptr<Ui::RpWidget>(mtproto3);
+	_secret3 = Ui::CreateChild<Base64UrlInput>(
+		secretWrap.data(),
+		st::connectionUserInputField,
+		tr::lng_connection_proxy_secret_ph(),
+		(data.type == Type::Mtproto3) ? data.password : QString());
+	_secret3->move(0, 0);
+	_secret3->heightValue(
+	) | rpl::on_next([=, wrap = secretWrap.data()](int height) {
+		wrap->resize(wrap->width(), height);
+	}, _secret3->lifetime());
+	secretWrap->widthValue(
+	) | rpl::on_next([=](int width) {
+		_secret3->resize(width, _secret3->height());
+	}, _secret3->lifetime());
+	mtproto3->add(std::move(secretWrap), st::proxyEditInputPadding);
+
+	addLabel(mtproto3, u"WebSocket Path"_q);
+	_wsPath = mtproto3->add(
+		object_ptr<Ui::InputField>(
+			mtproto3,
+			st::connectionUserInputField,
+			rpl::single(u"e.g. /v1/api/mtpr"_q),
+			(data.type == Type::Mtproto3) ? data.wsPath : QString()),
+		st::proxyEditInputPadding);
+}
+
 void ProxyBox::setupControls(const ProxyData &data) {
 	_type = std::make_shared<Ui::RadioenumGroup<Type>>(
 		(data.type == Type::None
@@ -1456,6 +1514,7 @@ void ProxyBox::setupControls(const ProxyData &data) {
 	setupSocketAddress(data);
 	setupCredentials(data);
 	setupMtprotoCredentials(data);
+	setupMtproto3Credentials(data);
 
 	const auto handleType = [=](Type type) {
 		_credentials->toggle(
@@ -1464,8 +1523,11 @@ void ProxyBox::setupControls(const ProxyData &data) {
 		_mtprotoCredentials->toggle(
 			type == Type::Mtproto,
 			anim::type::instant);
+		_mtproto3Credentials->toggle(
+			type == Type::Mtproto3,
+			anim::type::instant);
 		_aboutSponsored->toggle(
-			type == Type::Mtproto,
+			type == Type::Mtproto || type == Type::Mtproto3,
 			anim::type::instant);
 	};
 	_type->setChangedCallback([=](Type type) {
@@ -2113,6 +2175,7 @@ void ProxiesBoxController::updateView(const Item &item) {
 		case Type::Http: return u"HTTP"_q;
 		case Type::Socks5: return u"SOCKS5"_q;
 		case Type::Mtproto: return u"MTPROTO"_q;
+		case Type::Mtproto3: return u"MTPROTO3"_q;
 		}
 		Unexpected("Proxy type in ProxiesBoxController::updateView.");
 	}();

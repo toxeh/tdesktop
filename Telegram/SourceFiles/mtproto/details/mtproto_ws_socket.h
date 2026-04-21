@@ -18,6 +18,7 @@ public:
 	WsSocket(
 		not_null<QThread*> thread,
 		const bytes::vector &secret,
+		const QString &wsPath,
 		const QNetworkProxy &proxy,
 		bool protocolForFiles);
 
@@ -41,9 +42,6 @@ private:
 		Error,
 	};
 
-	[[nodiscard]] bytes::const_span domainFromSecret() const;
-	[[nodiscard]] bytes::const_span keyFromSecret() const;
-
 	void plainConnected();
 	void plainDisconnected();
 	void plainReadyRead();
@@ -57,6 +55,7 @@ private:
 		bytes::const_span payload) const;
 
 	const bytes::vector _secret;
+	const QByteArray _wsPath;
 	QSslSocket _socket;
 	State _state = State::NotConnected;
 	QByteArray _incoming;

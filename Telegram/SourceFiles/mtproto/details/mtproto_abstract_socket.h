@@ -18,7 +18,8 @@ public:
 		not_null<QThread*> thread,
 		const bytes::vector &secret,
 		const QNetworkProxy &proxy,
-		bool protocolForFiles);
+		bool protocolForFiles,
+		const QString &wsPath = QString());
 
 	void setDebugId(const QString &id) {
 		_debugId = id;

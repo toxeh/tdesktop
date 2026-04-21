@@ -52,9 +52,14 @@ namespace {
 		case 1: return MTP::ProxyData::Type::Socks5;
 		case 2: return MTP::ProxyData::Type::Http;
 		case 3: return MTP::ProxyData::Type::Mtproto;
+		case 4: return MTP::ProxyData::Type::Mtproto3;
 		}
 		Unexpected("Bad type in DeserializeProxyData");
 	}();
+	if (proxy.type == MTP::ProxyData::Type::Mtproto3
+		&& stream.status() == QDataStream::Ok) {
+		stream >> proxy.wsPath;
+	}
 	return proxy;
 }
 
@@ -64,7 +69,10 @@ namespace {
 		+ Serialize::stringSize(proxy.host)
 		+ 1 * sizeof(qint32)
 		+ Serialize::stringSize(proxy.user)
-		+ Serialize::stringSize(proxy.password);
+		+ Serialize::stringSize(proxy.password)
+		+ ((proxy.type == MTP::ProxyData::Type::Mtproto3)
+			? Serialize::stringSize(proxy.wsPath)
+			: 0);
 
 	result.reserve(size);
 	{
@@ -74,6 +82,7 @@ namespace {
 			case MTP::ProxyData::Type::Socks5: return 1;
 			case MTP::ProxyData::Type::Http: return 2;
 			case MTP::ProxyData::Type::Mtproto: return 3;
+			case MTP::ProxyData::Type::Mtproto3: return 4;
 			}
 			Unexpected("Bad type in SerializeProxyData");
 		}();
@@ -86,6 +95,9 @@ namespace {
 			<< qint32(proxy.port)
 			<< proxy.user
 			<< proxy.password;
+		if (proxy.type == MTP::ProxyData::Type::Mtproto3) {
+			stream << proxy.wsPath;
+		}
 	}
 	return result;
 }

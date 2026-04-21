@@ -35,8 +35,7 @@ namespace {
 	const auto type2 = password[1].toLower();
 	const auto valid = (size == 16)
 		|| (size == 17 && (type1 == 'd') && (type2 == 'd'))
-		|| (size >= 21 && (type1 == 'e') && (type2 == 'e'))
-		|| (size >= 21 && (type1 == 'f') && (type2 == 'f'));
+		|| (size >= 21 && (type1 == 'e') && (type2 == 'e'));
 	if (valid) {
 		return ProxyData::Status::Valid;
 	} else if (size < 16) {
@@ -123,9 +122,6 @@ namespace {
 			&& (password[0] == '7')
 			&& (password[1] >= 'g')
 			&& (password[1] <= 'v'))
-		|| (size >= 21
-			&& (password[0] == '_')
-			&& (password[1] == 'w'));
 	const auto incorrect = (size >= 21
 		&& password[0].toLower() == 'e'
 		&& password[1].toLower() == 'e');
@@ -158,6 +154,11 @@ ProxyData::Status ProxyData::status() const {
 		return Status::Invalid;
 	} else if (type == Type::Mtproto) {
 		return MtprotoPasswordStatus(password);
+	} else if (type == Type::Mtproto3) {
+		if (password.isEmpty() || wsPath.isEmpty()) {
+			return Status::Invalid;
+		}
+		return MtprotoPasswordStatus(password);
 	}
 	return Status::Valid;
 }
@@ -170,13 +171,15 @@ bool ProxyData::tryCustomResolve() const {
 	static const auto RegExp = QRegularExpression(
 		QStringLiteral("^\\d+\\.\\d+\\.\\d+\\.\\d+$")
 	);
-	return (type == Type::Socks5 || type == Type::Mtproto)
+	return (type == Type::Socks5
+			|| type == Type::Mtproto
+			|| type == Type::Mtproto3)
 		&& !qthelp::is_ipv6(host)
 		&& !RegExp.match(host).hasMatch();
 }
 
 bytes::vector ProxyData::secretFromMtprotoPassword() const {
-	Expects(type == Type::Mtproto);
+	Expects(type == Type::Mtproto || type == Type::Mtproto3);
 
 	if (IsHexMtprotoPassword(password)) {
 		return SecretFromHexMtprotoPassword(password);
@@ -198,7 +201,8 @@ bool ProxyData::operator==(const ProxyData &other) const {
 		&& (host == other.host)
 		&& (port == other.port)
 		&& (user == other.user)
-		&& (password == other.password);
+		&& (password == other.password)
+		&& (wsPath == other.wsPath);
 }
 
 bool ProxyData::operator!=(const ProxyData &other) const {
@@ -236,7 +240,8 @@ ProxyData ToDirectIpProxy(const ProxyData &proxy, int ipIndex) {
 QNetworkProxy ToNetworkProxy(const ProxyData &proxy) {
 	if (proxy.type == ProxyData::Type::None) {
 		return QNetworkProxy::DefaultProxy;
-	} else if (proxy.type == ProxyData::Type::Mtproto) {
+	} else if (proxy.type == ProxyData::Type::Mtproto
+		|| proxy.type == ProxyData::Type::Mtproto3) {
 		return QNetworkProxy::NoProxy;
 	}
 	return QNetworkProxy(

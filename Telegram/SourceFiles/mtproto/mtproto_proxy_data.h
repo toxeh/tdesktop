@@ -20,6 +20,7 @@ struct ProxyData {
 		Socks5,
 		Http,
 		Mtproto,
+		Mtproto3,
 	};
 	enum class Status {
 		Valid,
@@ -32,6 +33,7 @@ struct ProxyData {
 	QString host;
 	uint32 port = 0;
 	QString user, password;
+	QString wsPath;
 
 	std::vector<QString> resolvedIPs;
 	crl::time resolvedExpireAt = 0;

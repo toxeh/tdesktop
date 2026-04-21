@@ -233,7 +233,6 @@ auto TcpConnection::Protocol::Create(bytes::const_span secret)
 -> std::unique_ptr<Protocol> {
 	// See also DcOptions::ValidateSecret.
 	if ((secret.size() >= 21 && secret[0] == bytes::type(0xEE))
-		|| (secret.size() >= 21 && secret[0] == bytes::type(0xFF))
 		|| (secret.size() == 17 && secret[0] == bytes::type(0xDD))) {
 		return std::make_unique<VersionD>(
 			bytes::make_vector(secret.subspan(1, 16)));
@@ -515,10 +514,12 @@ void TcpConnection::connectToServer(
 	Expects(_protocol == nullptr);
 	Expects(_protocolDcId == 0);
 
-	const auto secret = (_proxy.type == ProxyData::Type::Mtproto)
+	const auto secret = (_proxy.type == ProxyData::Type::Mtproto
+			|| _proxy.type == ProxyData::Type::Mtproto3)
 		? _proxy.secretFromMtprotoPassword()
 		: protocolSecret;
-	if (_proxy.type == ProxyData::Type::Mtproto) {
+	if (_proxy.type == ProxyData::Type::Mtproto
+		|| _proxy.type == ProxyData::Type::Mtproto3) {
 		_address = _proxy.host;
 		_port = _proxy.port;
 		_protocol = Protocol::Create(secret);
@@ -527,11 +528,15 @@ void TcpConnection::connectToServer(
 		_port = port;
 		_protocol = Protocol::Create(secret);
 	}
+	const auto wsPath = (_proxy.type == ProxyData::Type::Mtproto3)
+		? _proxy.wsPath
+		: QString();
 	_socket = AbstractSocket::Create(
 		thread(),
 		secret,
 		ToNetworkProxy(_proxy),
-		protocolForFiles);
+		protocolForFiles,
+		wsPath);
 	_protocolDcId = protocolDcId;
 
 	const auto postfix = _socket->debugPostfix();
