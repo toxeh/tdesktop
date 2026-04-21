@@ -46,12 +46,14 @@ WsSocket::WsSocket(
 	not_null<QThread*> thread,
 	const bytes::vector &secret,
 	const QString &wsPath,
+	const QString &domain,
 	const QNetworkProxy &proxy,
 	bool protocolForFiles)
 : AbstractSocket(thread)
 , _secret(secret)
-, _wsPath(wsPath.toUtf8()) {
-	Expects(_secret.size() >= 17);
+, _wsPath(wsPath.toUtf8())
+, _domain(domain) {
+	Expects(_secret.size() >= 16);
 
 	_socket.moveToThread(thread);
 	_socket.setProxy(proxy);
@@ -90,7 +92,7 @@ WsSocket::WsSocket(
 		&QSslSocket::sslErrors,
 		wrap([=](const QList<QSslError> &errors) {
 			for (const auto &e : errors) {
-				logError(888, "SSL: " + e.errorString());
+					logError(888, "SSL: " + e.errorString());
 			}
 			handleError();
 		}));
@@ -133,7 +135,9 @@ void WsSocket::handleError(int errorCode) {
 void WsSocket::sendUpgradeRequest() {
 	_wsKey = GenerateWsKey();
 
-	const auto host = _socket.peerName().toUtf8();
+	const auto host = _domain.isEmpty()
+		? _socket.peerName().toUtf8()
+		: _domain.toUtf8();
 
 	auto request = QByteArray();
 	request.append("GET ");
@@ -168,7 +172,6 @@ void WsSocket::readUpgradeResponse() {
 		_incoming.constData(),
 		endIndex);
 
-	// Verify HTTP 101 Switching Protocols.
 	if (!response.startsWith("HTTP/1.1 101")) {
 		logError(888, "WebSocket upgrade failed: " + response.left(40));
 		handleError();
@@ -346,7 +349,8 @@ void WsSocket::connectToHost(const QString &address, int port) {
 
 	_state = State::Connecting;
 	_socket.setPeerVerifyMode(QSslSocket::VerifyPeer);
-	_socket.connectToHostEncrypted(address, port, address);
+	const auto sni = _domain.isEmpty() ? address : _domain;
+	_socket.connectToHostEncrypted(address, port, sni);
 }
 
 bool WsSocket::isGoodStartNonce(bytes::const_span nonce) {

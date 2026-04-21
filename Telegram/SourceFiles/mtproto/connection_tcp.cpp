@@ -241,6 +241,11 @@ auto TcpConnection::Protocol::Create(bytes::const_span secret)
 	} else if (secret.empty()) {
 		return std::make_unique<Version0>();
 	}
+	if (secret.size() >= 17) {
+		// Unknown prefix — treat as 1-byte prefix + 16-byte key.
+		return std::make_unique<VersionD>(
+			bytes::make_vector(secret.subspan(1, 16)));
+	}
 	Unexpected("Secret bytes in TcpConnection::Protocol::Create.");
 }
 
@@ -518,8 +523,16 @@ void TcpConnection::connectToServer(
 			|| _proxy.type == ProxyData::Type::Mtproto3)
 		? _proxy.secretFromMtprotoPassword()
 		: protocolSecret;
-	if (_proxy.type == ProxyData::Type::Mtproto
-		|| _proxy.type == ProxyData::Type::Mtproto3) {
+	if (_proxy.type == ProxyData::Type::Mtproto3) {
+		_address = _proxy.host;
+		_port = _proxy.port;
+		// For Mtproto3 (WebSocket), extract just the 16-byte key
+		// for the obfuscated2 protocol layer inside WS frames.
+		const auto key = (secret.size() > 16)
+			? bytes::make_vector(bytes::make_span(secret).subspan(1, 16))
+			: secret;
+		_protocol = Protocol::Create(key);
+	} else if (_proxy.type == ProxyData::Type::Mtproto) {
 		_address = _proxy.host;
 		_port = _proxy.port;
 		_protocol = Protocol::Create(secret);
@@ -531,12 +544,28 @@ void TcpConnection::connectToServer(
 	const auto wsPath = (_proxy.type == ProxyData::Type::Mtproto3)
 		? _proxy.wsPath
 		: QString();
+	auto wsDomain = QString();
+	if (_proxy.type == ProxyData::Type::Mtproto3) {
+		if (secret.size() > 17
+			&& static_cast<unsigned char>(secret[0]) == 0xEE) {
+			wsDomain = QString::fromUtf8(
+				reinterpret_cast<const char*>(secret.data() + 17),
+				int(secret.size()) - 17);
+		}
+		if (wsDomain.isEmpty() && !_proxy.originalHost.isEmpty()) {
+			wsDomain = _proxy.originalHost;
+		}
+		if (wsDomain.isEmpty() && _proxy.host != _address) {
+			wsDomain = _proxy.host;
+		}
+	}
 	_socket = AbstractSocket::Create(
 		thread(),
 		secret,
 		ToNetworkProxy(_proxy),
 		protocolForFiles,
-		wsPath);
+		wsPath,
+		wsDomain);
 	_protocolDcId = protocolDcId;
 
 	const auto postfix = _socket->debugPostfix();

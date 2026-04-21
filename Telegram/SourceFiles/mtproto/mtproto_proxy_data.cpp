@@ -121,7 +121,7 @@ namespace {
 		|| (size >= 21
 			&& (password[0] == '7')
 			&& (password[1] >= 'g')
-			&& (password[1] <= 'v'))
+			&& (password[1] <= 'v'));
 	const auto incorrect = (size >= 21
 		&& password[0].toLower() == 'e'
 		&& password[1].toLower() == 'e');
@@ -158,7 +158,12 @@ ProxyData::Status ProxyData::status() const {
 		if (password.isEmpty() || wsPath.isEmpty()) {
 			return Status::Invalid;
 		}
-		return MtprotoPasswordStatus(password);
+		// For Mtproto3, accept any valid hex/base64url secret >= 16 bytes.
+		const auto s = MtprotoPasswordStatus(password);
+		if (s == Status::Invalid) {
+			return Status::Invalid;
+		}
+		return Status::Valid;
 	}
 	return Status::Valid;
 }
@@ -228,13 +233,18 @@ ProxyData ToDirectIpProxy(const ProxyData &proxy, int ipIndex) {
 		|| ipIndex >= proxy.resolvedIPs.size()) {
 		return proxy;
 	}
-	return {
+	auto result = ProxyData{
 		proxy.type,
 		proxy.resolvedIPs[ipIndex],
 		proxy.port,
 		proxy.user,
-		proxy.password
+		proxy.password,
+		proxy.wsPath,
 	};
+	result.originalHost = proxy.originalHost.isEmpty()
+		? proxy.host
+		: proxy.originalHost;
+	return result;
 }
 
 QNetworkProxy ToNetworkProxy(const ProxyData &proxy) {

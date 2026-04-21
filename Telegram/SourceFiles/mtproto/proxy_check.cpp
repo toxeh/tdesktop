@@ -74,7 +74,8 @@ void StartProxyCheck(
 		raw->connect(raw, &Connection::disconnected, failed);
 		raw->connect(raw, &Connection::error, failed);
 	};
-	if (proxy.type == ProxyData::Type::Mtproto) {
+	if (proxy.type == ProxyData::Type::Mtproto
+		|| proxy.type == ProxyData::Type::Mtproto3) {
 		const auto secret = proxy.secretFromMtprotoPassword();
 		setup(v4, secret);
 		v4->connectToServer(

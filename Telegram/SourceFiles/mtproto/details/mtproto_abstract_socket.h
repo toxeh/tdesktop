@@ -19,7 +19,8 @@ public:
 		const bytes::vector &secret,
 		const QNetworkProxy &proxy,
 		bool protocolForFiles,
-		const QString &wsPath = QString());
+		const QString &wsPath = QString(),
+		const QString &wsDomain = QString());
 
 	void setDebugId(const QString &id) {
 		_debugId = id;

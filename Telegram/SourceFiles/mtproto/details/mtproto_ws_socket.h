@@ -19,6 +19,7 @@ public:
 		not_null<QThread*> thread,
 		const bytes::vector &secret,
 		const QString &wsPath,
+		const QString &domain,
 		const QNetworkProxy &proxy,
 		bool protocolForFiles);
 
@@ -56,6 +57,7 @@ private:
 
 	const bytes::vector _secret;
 	const QByteArray _wsPath;
+	const QString _domain;
 	QSslSocket _socket;
 	State _state = State::NotConnected;
 	QByteArray _incoming;

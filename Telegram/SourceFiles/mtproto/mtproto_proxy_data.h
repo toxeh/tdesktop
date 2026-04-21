@@ -35,6 +35,7 @@ struct ProxyData {
 	QString user, password;
 	QString wsPath;
 
+	QString originalHost;
 	std::vector<QString> resolvedIPs;
 	crl::time resolvedExpireAt = 0;
 

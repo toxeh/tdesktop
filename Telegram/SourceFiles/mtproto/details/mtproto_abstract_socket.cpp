@@ -18,12 +18,14 @@ std::unique_ptr<AbstractSocket> AbstractSocket::Create(
 		const bytes::vector &secret,
 		const QNetworkProxy &proxy,
 		bool protocolForFiles,
-		const QString &wsPath) {
+		const QString &wsPath,
+		const QString &wsDomain) {
 	if (!wsPath.isEmpty()) {
 		return std::make_unique<WsSocket>(
 			thread,
 			secret,
 			wsPath,
+			wsDomain,
 			proxy,
 			protocolForFiles);
 	} else if (secret.size() >= 21 && secret[0] == bytes::type(0xEE)) {
