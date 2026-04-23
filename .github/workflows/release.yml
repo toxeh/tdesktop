@@ -64,8 +64,8 @@ jobs:
           if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
             echo "API_DEFINES=-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH" >> $GITHUB_ENV
           else
-            echo "::warning::TDESKTOP_API_ID/TDESKTOP_API_HASH secrets not set; building with TDESKTOP_API_TEST=ON (test server only)."
-            echo "API_DEFINES=-D TDESKTOP_API_TEST=ON" >> $GITHUB_ENV
+            echo "::notice::Using tdesktop open nightly credentials (TDESKTOP_API_ID/HASH secrets not set)."
+            echo "API_DEFINES=-D TDESKTOP_API_ID=611335 -D TDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c" >> $GITHUB_ENV
           fi
 
       - name: Build.
@@ -148,8 +148,8 @@ jobs:
           if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
             echo "API_DEFINES=-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH" >> $GITHUB_ENV
           else
-            echo "::warning::TDESKTOP_API_ID/TDESKTOP_API_HASH secrets not set; building with TDESKTOP_API_TEST=ON (test server only)."
-            echo "API_DEFINES=-D TDESKTOP_API_TEST=ON" >> $GITHUB_ENV
+            echo "::notice::Using tdesktop open nightly credentials (TDESKTOP_API_ID/HASH secrets not set)."
+            echo "API_DEFINES=-D TDESKTOP_API_ID=611335 -D TDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c" >> $GITHUB_ENV
           fi
 
       - name: Build.
@@ -276,8 +276,8 @@ jobs:
           if [ -n "$TDESKTOP_API_ID" ] && [ -n "$TDESKTOP_API_HASH" ]; then
             echo "API_DEFINES=-D TDESKTOP_API_ID=$TDESKTOP_API_ID -D TDESKTOP_API_HASH=$TDESKTOP_API_HASH" >> $GITHUB_ENV
           else
-            echo "::warning::TDESKTOP_API_ID/TDESKTOP_API_HASH secrets not set; building with TDESKTOP_API_TEST=ON (test server only)."
-            echo "API_DEFINES=-D TDESKTOP_API_TEST=ON" >> $GITHUB_ENV
+            echo "::notice::Using tdesktop open nightly credentials (TDESKTOP_API_ID/HASH secrets not set)."
+            echo "API_DEFINES=-D TDESKTOP_API_ID=611335 -D TDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c" >> $GITHUB_ENV
           fi
 
       - name: Build.
@@ -351,4 +351,4 @@ jobs:
             - **Windows:** click "More info" → "Run anyway" on the SmartScreen prompt.
             - **Linux:** `chmod +x Telegram && ./Telegram`.
 
-            If built without `TDESKTOP_API_ID`/`TDESKTOP_API_HASH` repo secrets, this build connects to Telegram's **test server only** and cannot log into real accounts.
+            Built with the open tdesktop nightly API credentials unless `TDESKTOP_API_ID`/`TDESKTOP_API_HASH` repo secrets are set.
